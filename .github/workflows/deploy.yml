@@ -1,0 +1,38 @@
+name: Deploy to EC2 using CodeDeploy
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::239940378006:role/github-repo-assu-role
+          aws-region: ap-south-1  # change if needed
+
+      - name: Create deployment bundle
+        run: zip -r app.zip .
+
+      - name: Upload bundle to S3
+        run: aws s3 cp app.zip s3://hello-codedeploy-artifacts/app.zip
+
+      - name: Trigger CodeDeploy
+        run: |
+          aws deploy create-deployment \
+            --application-name hello-codedeploy \
+            --deployment-group-name hello-codedeploy-group \
+            --deployment-config-name CodeDeployDefault.AllAtOnce \
+            --s3-location bucket=hello-codedeploy-artifacts,key=app.zip,bundleType=zip
